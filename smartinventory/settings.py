@@ -1,11 +1,19 @@
 """Django settings for the Smart Inventory project."""
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-smart-inventory-dev-key-change-in-production'
+# On the live server these come from environment variables (set in the WSGI file),
+# so the real secret key is never stored in the repository.
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-smart-inventory-dev-key-change-in-production')
 
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', '1') == '1'
+
+if not DEBUG:
+    # The live site is served over HTTPS only.
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 ALLOWED_HOSTS = ['*']
 

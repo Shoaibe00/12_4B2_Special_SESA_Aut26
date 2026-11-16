@@ -2,8 +2,10 @@
 
 A web application for small shops to **sell at the counter, keep stock accurate, and get an alert before any product runs out**.
 
-**Course:** CSE 356 — Software Engineering and System Analysis Lab, UITS
+**Course:** CSE 0613226 — Software Engineering and System Analysis Lab, UITS
 **Developed by:** MD. Shoaibe Hasan
+
+**Live demo:** https://hasan1083.pythonanywhere.com  (login: `admin` / `admin123`, sample data only)
 
 > The repository includes the database (`db.sqlite3`) with sample products and sales, so the project runs with real data right after download. If it does not run on your computer, see the [screenshots](#screenshots) below.
 
@@ -24,10 +26,12 @@ A web application for small shops to **sell at the counter, keep stock accurate,
 
 | Part | Technology |
 |---|---|
-| Backend | Python, Django 4.2 |
+| Backend | Python, Django 5.2 LTS |
 | Database | SQLite (Django ORM) |
 | Frontend | HTML, CSS, JavaScript, Chart.js, Bootstrap Icons |
-| Testing | Django test framework (72 tests), coverage.py |
+| Testing | Django test framework (72 tests), coverage.py, Playwright (10 browser tests) |
+| CI | GitHub Actions (runs all tests on every push) |
+| Hosting | PythonAnywhere |
 
 ---
 
@@ -75,6 +79,11 @@ Open **http://127.0.0.1:8000** in the browser.
 ### Run the tests (optional)
 ```bash
 python manage.py test inventory
+```
+Browser system tests (needs Node.js; start the server first):
+```bash
+npm install playwright
+node e2e/system_tests.js
 ```
 
 ---

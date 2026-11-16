@@ -28,6 +28,11 @@ def today():
     return timezone.localdate()
 
 
+EARLIEST = date(2000, 1, 1)
+LATEST = date(2099, 12, 31)
+MAX_DAYS = 731  # a custom range covers at most two years
+
+
 def parse_range(params, default='30d'):
     """Read ?range=…&start=YYYY-MM-DD&end=YYYY-MM-DD into (key, start, end)."""
     key = params.get('range', default)
@@ -41,6 +46,12 @@ def parse_range(params, default='30d'):
         else:
             if start > end:
                 start, end = end, start
+            # Dates like 0001-01-01 or 9999-12-31 used to crash the page
+            # (date overflow); keep the range inside sensible limits.
+            start = min(max(start, EARLIEST), LATEST)
+            end = min(max(end, EARLIEST), LATEST)
+            if (end - start).days >= MAX_DAYS:
+                start = end - timedelta(days=MAX_DAYS - 1)
             return key, start, end
     days = {'today': 1, '7d': 7, '30d': 30, '90d': 90}.get(key)
     if days is None:
@@ -192,6 +203,11 @@ def reorder_suggestions(start, end, cover_days=14):
         if not low and (days_left is None or days_left >= cover_days):
             continue
         target = math.ceil(per_day * cover_days) + p.low_stock_threshold
+        if low:
+            # A product sitting exactly on its alert level used to get target ==
+            # quantity and drop out of the plan while the dashboard still showed
+            # it as low. Order enough to lift it above the alert level.
+            target = max(target, p.low_stock_threshold + 1)
         suggest = max(target - p.quantity, 0)
         if not suggest:
             continue

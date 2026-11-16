@@ -7,7 +7,7 @@ from django.db.models import Sum
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import Category, Customer, Order, Product, Sale, StockMovement, StoreSettings, Supplier
+from .models import Category, Customer, Order, Product, StockMovement, StoreSettings, Supplier
 from .services import StockError, adjust, checkout, receive
 
 User = get_user_model()

@@ -22,7 +22,7 @@
 </div>
 
 <form method="get" class="toolbar" id="rangeForm">
-  <div class="seg" role="tablist">
+  <div class="seg" role="group" aria-label="Report period">
     {% for key, label in ranges %}
       {% if key == 'custom' %}
       <button type="button" class="{% if range_key == key %}active{% endif %}" id="customBtn">{{ label }}</button>

@@ -9,6 +9,7 @@ from django.utils import timezone
 from .models import Customer, Order, Product, Sale, StockIn, StockMovement, Supplier
 
 TWO_PLACES = Decimal('0.01')
+MAX_QUANTITY = 1_000_000  # largest quantity one line may carry
 
 
 class StockError(Exception):
@@ -38,16 +39,32 @@ def find_by_code(code):
 
 def to_decimal(value, default='0'):
     try:
-        return Decimal(str(value if value not in (None, '') else default)).quantize(TWO_PLACES)
+        amount = Decimal(str(value if value not in (None, '') else default))
+        if not amount.is_finite():  # "NaN" and "Infinity" are not amounts
+            raise InvalidOperation
+        return amount.quantize(TWO_PLACES)
     except (InvalidOperation, ValueError):
         raise StockError(f'"{value}" is not a valid amount.')
 
 
 def to_int(value):
-    try:
-        return int(value)
-    except (TypeError, ValueError):
+    # True/False and 1.5 used to slip through as 1; only whole numbers count.
+    if isinstance(value, bool) or (isinstance(value, float) and not value.is_integer()):
         raise StockError(f'"{value}" is not a valid quantity.')
+    try:
+        number = int(value)
+    except (TypeError, ValueError, OverflowError):
+        raise StockError(f'"{value}" is not a valid quantity.')
+    if abs(number) > MAX_QUANTITY:
+        raise StockError(f'{number} is too large; the limit is {MAX_QUANTITY:,}.')
+    return number
+
+
+def _rows(lines):
+    """The request's list of lines; anything else is rejected, not crashed on."""
+    if not isinstance(lines, (list, tuple)) or not all(isinstance(line, dict) for line in lines):
+        raise StockError('The request is not valid. Refresh the page and try again.')
+    return lines
 
 
 def move(product, quantity, kind, reason, user=None, **extra):
@@ -74,7 +91,7 @@ def _lock(ids):
 def _merge_lines(lines, field):
     """[{id, <field>}, …] -> {product_id: summed value}, rejecting junk."""
     merged = {}
-    for line in lines:
+    for line in _rows(lines):
         pk = to_int(line.get('id'))
         merged[pk] = merged.get(pk, 0) + to_int(line.get(field))
     return merged
@@ -82,6 +99,8 @@ def _merge_lines(lines, field):
 
 def get_or_create_customer(data):
     data = data or {}
+    if not isinstance(data, dict):
+        raise StockError('The customer details are not valid.')
     if data.get('id'):
         return Customer.objects.filter(pk=to_int(data['id'])).first()
     name = (data.get('name') or '').strip()[:150]
@@ -148,7 +167,7 @@ def receive(lines, user=None, supplier_id=None, note=''):
     """Stock In: lines are [{id, qty, cost}]. Updates buy price to the latest cost."""
     supplier = Supplier.objects.filter(pk=supplier_id).first() if supplier_id else None
     parsed = {}
-    for line in lines:
+    for line in _rows(lines):
         pk, qty = to_int(line.get('id')), to_int(line.get('qty'))
         if qty < 1:
             raise StockError('Quantity received must be at least 1.')
@@ -185,7 +204,7 @@ def adjust(lines, user=None, reason='count', note=''):
     if reason not in StockMovement.ADJUST_REASONS:
         raise StockError('Pick a reason for the adjustment.')
     if reason == 'count':
-        counted = {to_int(line.get('id')): to_int(line.get('counted')) for line in lines}
+        counted = {to_int(line.get('id')): to_int(line.get('counted')) for line in _rows(lines)}
         if any(c < 0 for c in counted.values()):
             raise StockError('A counted quantity cannot be negative.')
         products = _lock(list(counted))
